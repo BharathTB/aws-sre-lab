@@ -1,0 +1,26 @@
+name: Deploy to AWS
+on:
+  push:
+    branches: [ main ] # Triggered every time you push to 'main'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            sudo apt-get update -y
+            sudo apt-get install -y python3-flask
+            # Move the new code into place
+            echo "${{ github.workspace }}/app.py" > /home/ubuntu/app.py
+            # Kill the old app and start the new one
+            sudo pkill python3 || true
+            sudo python3 /home/ubuntu/app.py &
