@@ -1,43 +1,33 @@
-name: Deploy Flask App to EC2
-
+name: Deploy to AWS
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Deploy to EC2
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Copy app.py to EC2
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "app.py"
+          target: "/home/ubuntu/"
+
+      - name: Restart App on EC2
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.REMOTE_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # Go to home directory
-            cd /home/ubuntu
-
-            # Clone repo if not exists
-            if [ ! -d "myapp" ]; then
-              git clone https://github.com/YOUR_USERNAME/YOUR_REPO.git myapp
-            fi
-
-            # Go inside project
-            cd myapp
-
-            # Pull latest changes
-            git pull origin main
-
-            # Install dependencies
             sudo apt-get update -y
-            sudo apt-get install -y python3-pip
-            pip3 install flask
-
-            # Kill old app
+            sudo apt-get install -y python3-flask
+            # Kill anything on port 80, then start the app
             sudo fuser -k 80/tcp || true
-
-            # Run app
-            nohup python3 app.py > app.log 2>&1 &
+            sudo python3 /home/ubuntu/app.py &
