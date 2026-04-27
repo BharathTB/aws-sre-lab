@@ -1,26 +1,20 @@
-name: Deploy to AWS
-on:
-  push:
-    branches: [ main ] # Triggered every time you push to 'main'
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.REMOTE_HOST }}
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            sudo apt-get update -y
-            sudo apt-get install -y python3-flask
-            # Move the new code into place
-            echo "${{ github.workspace }}/app.py" > /home/ubuntu/app.py
-            # Kill the old app and start the new one
-            sudo pkill python3 || true
-            sudo python3 /home/ubuntu/app.py &
+- name: Deploy to EC2
+  uses: appleboy/ssh-action@master
+  with:
+    host: ${{ secrets.REMOTE_HOST }}
+    username: ubuntu
+    key: ${{ secrets.EC2_SSH_KEY }}
+    script: |
+      sudo apt-get update -y
+      sudo apt-get install -y python3-flask
+            
+      # 1. Stop any old version running on Port 80
+      sudo fuser -k 80/tcp || true
+      
+      # 2. Get the new code from GitHub (this overwrites your manual app.py)
+      cat <<EOF > /home/ubuntu/app.py
+      ${{ github.workspace }}/app.py
+      EOF
+            
+      # 3. Start the new version
+      sudo python3 /home/ubuntu/app.py &
