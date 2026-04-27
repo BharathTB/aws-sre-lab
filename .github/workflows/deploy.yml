@@ -1,20 +1,43 @@
-- name: Deploy to EC2
-  uses: appleboy/ssh-action@master
-  with:
-    host: ${{ secrets.REMOTE_HOST }}
-    username: ubuntu
-    key: ${{ secrets.EC2_SSH_KEY }}
-    script: |
-      sudo apt-get update -y
-      sudo apt-get install -y python3-flask
-            
-      # 1. Stop any old version running on Port 80
-      sudo fuser -k 80/tcp || true
-      
-      # 2. Get the new code from GitHub (this overwrites your manual app.py)
-      cat <<EOF > /home/ubuntu/app.py
-      ${{ github.workspace }}/app.py
-      EOF
-            
-      # 3. Start the new version
-      sudo python3 /home/ubuntu/app.py &
+name: Deploy Flask App to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # Go to home directory
+            cd /home/ubuntu
+
+            # Clone repo if not exists
+            if [ ! -d "myapp" ]; then
+              git clone https://github.com/YOUR_USERNAME/YOUR_REPO.git myapp
+            fi
+
+            # Go inside project
+            cd myapp
+
+            # Pull latest changes
+            git pull origin main
+
+            # Install dependencies
+            sudo apt-get update -y
+            sudo apt-get install -y python3-pip
+            pip3 install flask
+
+            # Kill old app
+            sudo fuser -k 80/tcp || true
+
+            # Run app
+            nohup python3 app.py > app.log 2>&1 &
