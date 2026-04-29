@@ -30,4 +30,4 @@ jobs:
             sudo apt-get update -y
             sudo apt-get install -y python3-flask
             sudo fuser -k 80/tcp || true
-            sudo python3 /home/ubuntu/app.py &
+            sudo nohup python3 /home/ubuntu/app.py > /home/ubuntu/app.log 2>&1 &
