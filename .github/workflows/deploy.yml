@@ -1,4 +1,4 @@
-name: Deploy to AWS
+name: Dockerized Deployment
 on:
   push:
     branches: [ main ]
@@ -10,24 +10,32 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: Copy app.py to EC2 (The Shipping Stage)
+      - name: Shipping Cargo (app.py & Dockerfile)
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.REMOTE_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "app.py"
+          source: "app.py,Dockerfile"
           target: "/home/ubuntu/"
 
-      - name: Restart App on EC2 (The Execution Stage)
+      - name: Build and Run Container
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.REMOTE_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # Clean up the server and start the app
-            sudo apt-get update -y
-            sudo apt-get install -y python3-flask
-            sudo fuser -k 80/tcp || true
-            sudo nohup python3 /home/ubuntu/app.py > /home/ubuntu/app.log 2>&1 &
+            # 1. Build the image from the Dockerfile
+            docker build -t my-flask-app .
+
+            # 2. Evict the old tenant (if it exists)
+            # '|| true' ensures the factory doesn't stop if the container isn't there
+            docker stop my-running-app || true
+            docker rm my-running-app || true
+
+            # 3. Start the fresh container
+            # -d: Run in background
+            # --name: Give it a fixed name for the next cleanup
+            # -p 80:80: Map the server's port to the container's port
+            docker run -d --name my-running-app -p 80:80 my-flask-app
